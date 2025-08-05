@@ -1,0 +1,788 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestor de Gastos Personales</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://apis.google.com/js/api.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            backdrop-filter: blur(10px);
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+        
+        .nav-tabs {
+            display: flex;
+            background: #f8f9fa;
+            border-bottom: 1px solid #dee2e6;
+        }
+        
+        .nav-tab {
+            flex: 1;
+            padding: 15px;
+            text-align: center;
+            cursor: pointer;
+            border: none;
+            background: transparent;
+            font-size: 16px;
+            transition: all 0.3s ease;
+        }
+        
+        .nav-tab:hover {
+            background: #e9ecef;
+        }
+        
+        .nav-tab.active {
+            background: #007bff;
+            color: white;
+        }
+        
+        .tab-content {
+            display: none;
+            padding: 30px;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+        }
+        
+        input, select, textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e1e5e9;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s ease;
+        }
+        
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: #007bff;
+            box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+        }
+        
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #007bff, #0056b3);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
+        }
+        
+        .btn-success {
+            background: linear-gradient(135deg, #28a745, #1e7e34);
+            color: white;
+        }
+        
+        .btn-success:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
+        }
+        
+        .btn-warning {
+            background: linear-gradient(135deg, #ffc107, #e0a800);
+            color: #212529;
+        }
+        
+        .file-input-wrapper {
+            position: relative;
+            display: inline-block;
+            cursor: pointer;
+            width: 100%;
+        }
+        
+        .file-input-wrapper input[type=file] {
+            position: absolute;
+            left: -9999px;
+        }
+        
+        .file-input-display {
+            display: block;
+            padding: 12px;
+            border: 2px dashed #007bff;
+            border-radius: 8px;
+            text-align: center;
+            background: #f8f9ff;
+            transition: all 0.3s ease;
+        }
+        
+        .file-input-display:hover {
+            border-color: #0056b3;
+            background: #e6f3ff;
+        }
+        
+        .transactions-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+        
+        .transactions-table th,
+        .transactions-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #dee2e6;
+        }
+        
+        .transactions-table th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #495057;
+        }
+        
+        .transactions-table tr:hover {
+            background: #f8f9fa;
+        }
+        
+        .income {
+            color: #28a745;
+            font-weight: 600;
+        }
+        
+        .expense {
+            color: #dc3545;
+            font-weight: 600;
+        }
+        
+        .summary-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .summary-card {
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            border-left: 4px solid #007bff;
+        }
+        
+        .summary-card.income {
+            border-left-color: #28a745;
+        }
+        
+        .summary-card.expense {
+            border-left-color: #dc3545;
+        }
+        
+        .summary-card h3 {
+            margin-bottom: 10px;
+            color: #666;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .summary-card .amount {
+            font-size: 2em;
+            font-weight: bold;
+            color: #333;
+        }
+        
+        .chart-container {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+        
+        .auth-section {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            font-weight: 500;
+        }
+        
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .status.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        
+        @media (max-width: 768px) {
+            .nav-tabs {
+                flex-direction: column;
+            }
+            
+            .summary-cards {
+                grid-template-columns: 1fr;
+            }
+            
+            .transactions-table {
+                font-size: 14px;
+            }
+            
+            .transactions-table th,
+            .transactions-table td {
+                padding: 8px 4px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>💰 Gestor de Gastos Personales</h1>
+            <p>Controla tus finanzas de manera inteligente</p>
+        </div>
+        
+        <div class="nav-tabs">
+            <button class="nav-tab active" onclick="showTab('config')">⚙️ Configuración</button>
+            <button class="nav-tab" onclick="showTab('add')">➕ Añadir Transacción</button>
+            <button class="nav-tab" onclick="showTab('import')">📁 Importar Excel</button>
+            <button class="nav-tab" onclick="showTab('dashboard')">📊 Dashboard</button>
+            <button class="nav-tab" onclick="showTab('transactions')">📋 Transacciones</button>
+        </div>
+        
+        <!-- Configuración -->
+        <div id="config" class="tab-content active">
+            <h2>Configuración de Google Sheets</h2>
+            <div class="auth-section">
+                <div id="auth-status" class="status info">
+                    Estado: No conectado a Google Sheets
+                </div>
+                <button id="auth-btn" class="btn btn-primary" onclick="authenticate()">
+                    Conectar con Google Sheets
+                </button>
+                <button id="signout-btn" class="btn btn-warning" onclick="signOut()" style="display: none;">
+                    Desconectar
+                </button>
+            </div>
+            
+            <div class="form-group">
+                <label for="spreadsheet-id">ID de Google Sheets:</label>
+                <input type="text" id="spreadsheet-id" placeholder="ID de tu hoja de cálculo de Google Sheets">
+                <small>Puedes encontrar el ID en la URL de tu Google Sheet: https://docs.google.com/spreadsheets/d/[ID_AQUÍ]/edit</small>
+            </div>
+            
+            <button class="btn btn-success" onclick="testConnection()">
+                Probar Conexión
+            </button>
+            
+            <div id="connection-status"></div>
+            
+            <div style="margin-top: 30px; padding: 20px; background: #f8f9fa; border-radius: 8px;">
+                <h3>Instrucciones de configuración:</h3>
+                <ol style="padding-left: 20px; line-height: 1.6;">
+                    <li>Crea una nueva hoja de cálculo en Google Sheets</li>
+                    <li>Copia el ID de la URL (la parte entre /d/ y /edit)</li>
+                    <li>Pégalo en el campo "ID de Google Sheets"</li>
+                    <li>Haz clic en "Conectar con Google Sheets"</li>
+                    <li>Autoriza el acceso a tu cuenta de Google</li>
+                    <li>¡Listo para usar!</li>
+                </ol>
+                <p><strong>Nota:</strong> La hoja debe tener columnas: Fecha, Concepto, Categoría, Importe, Tipo</p>
+            </div>
+        </div>
+        
+        <!-- Añadir Transacción -->
+        <div id="add" class="tab-content">
+            <h2>Añadir Nueva Transacción</h2>
+            <form id="transaction-form">
+                <div class="form-group">
+                    <label for="date">Fecha:</label>
+                    <input type="date" id="date" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="concept">Concepto:</label>
+                    <input type="text" id="concept" placeholder="Descripción de la transacción" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="category">Categoría:</label>
+                    <select id="category" required>
+                        <option value="">Selecciona una categoría</option>
+                        <option value="Alimentación">Alimentación</option>
+                        <option value="Transporte">Transporte</option>
+                        <option value="Vivienda">Vivienda</option>
+                        <option value="Entretenimiento">Entretenimiento</option>
+                        <option value="Salud">Salud</option>
+                        <option value="Educación">Educación</option>
+                        <option value="Ropa">Ropa</option>
+                        <option value="Servicios">Servicios</option>
+                        <option value="Salario">Salario</option>
+                        <option value="Freelance">Freelance</option>
+                        <option value="Inversiones">Inversiones</option>
+                        <option value="Otros Ingresos">Otros Ingresos</option>
+                        <option value="Otros Gastos">Otros Gastos</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="amount">Importe (€):</label>
+                    <input type="number" id="amount" step="0.01" placeholder="0.00" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="type">Tipo:</label>
+                    <select id="type" required>
+                        <option value="">Selecciona el tipo</option>
+                        <option value="Ingreso">Ingreso</option>
+                        <option value="Gasto">Gasto</option>
+                    </select>
+                </div>
+                
+                <button type="submit" class="btn btn-primary">Añadir Transacción</button>
+            </form>
+        </div>
+        
+        <!-- Importar Excel -->
+        <div id="import" class="tab-content">
+            <h2>Importar Extracto Bancario</h2>
+            <p style="margin-bottom: 20px; color: #666;">
+                Sube tu extracto bancario en formato Excel. El archivo debe tener las columnas: 
+                <strong>Fecha operación, Fecha valor, Concepto, Importe EUR, Saldo</strong>
+            </p>
+            
+            <div class="form-group">
+                <label>Seleccionar archivo Excel:</label>
+                <div class="file-input-wrapper">
+                    <input type="file" id="excel-file" accept=".xlsx,.xls" onchange="handleFileSelect(event)">
+                    <div class="file-input-display">
+                        <span id="file-display">📁 Haz clic para seleccionar archivo Excel</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label for="default-category">Categoría por defecto para importación:</label>
+                <select id="default-category">
+                    <option value="Otros Gastos">Otros Gastos</option>
+                    <option value="Alimentación">Alimentación</option>
+                    <option value="Transporte">Transporte</option>
+                    <option value="Vivienda">Vivienda</option>
+                    <option value="Entretenimiento">Entretenimiento</option>
+                    <option value="Salud">Salud</option>
+                    <option value="Servicios">Servicios</option>
+                    <option value="Otros Ingresos">Otros Ingresos</option>
+                </select>
+            </div>
+            
+            <button class="btn btn-success" onclick="importExcel()" id="import-btn" disabled>
+                Importar Datos
+            </button>
+            
+            <div id="import-preview" style="margin-top: 20px;"></div>
+        </div>
+        
+        <!-- Dashboard -->
+        <div id="dashboard" class="tab-content">
+            <h2>Dashboard Financiero</h2>
+            
+            <div class="summary-cards">
+                <div class="summary-card income">
+                    <h3>Total Ingresos</h3>
+                    <div class="amount" id="total-income">€0.00</div>
+                </div>
+                <div class="summary-card expense">
+                    <h3>Total Gastos</h3>
+                    <div class="amount" id="total-expenses">€0.00</div>
+                </div>
+                <div class="summary-card">
+                    <h3>Balance</h3>
+                    <div class="amount" id="balance">€0.00</div>
+                </div>
+            </div>
+            
+            <div class="chart-container">
+                <h3>Gastos por Categoría</h3>
+                <canvas id="categoryChart" width="400" height="200"></canvas>
+            </div>
+            
+            <div class="chart-container">
+                <h3>Evolución Mensual</h3>
+                <canvas id="monthlyChart" width="400" height="200"></canvas>
+            </div>
+        </div>
+        
+        <!-- Transacciones -->
+        <div id="transactions" class="tab-content">
+            <h2>Historial de Transacciones</h2>
+            
+            <div style="margin-bottom: 20px;">
+                <button class="btn btn-primary" onclick="loadTransactions()">
+                    Actualizar Lista
+                </button>
+                <button class="btn btn-warning" onclick="exportToExcel()">
+                    Exportar a Excel
+                </button>
+            </div>
+            
+            <div id="transactions-container">
+                <p>Carga las transacciones para ver el historial completo.</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Variables globales
+        let isGoogleSheetsConnected = false;
+        let currentSpreadsheetId = '';
+        let transactions = [];
+        let excelData = [];
+        
+        // Configuración de Google Sheets API
+        const CLIENT_ID = 'TU_CLIENT_ID';
+        const API_KEY = 'TU_API_KEY';
+        const DISCOVERY_DOC = 'https://sheets.googleapis.com/$discovery/rest?version=v4';
+        const SCOPES = 'https://www.googleapis.com/auth/spreadsheets';
+        
+        // Inicializar la fecha de hoy
+        document.getElementById('date').valueAsDate = new Date();
+        
+        // Funciones de navegación
+        function showTab(tabName) {
+            // Ocultar todas las pestañas
+            const tabs = document.querySelectorAll('.tab-content');
+            tabs.forEach(tab => tab.classList.remove('active'));
+            
+            // Ocultar todos los botones activos
+            const buttons = document.querySelectorAll('.nav-tab');
+            buttons.forEach(button => button.classList.remove('active'));
+            
+            // Mostrar la pestaña seleccionada
+            document.getElementById(tabName).classList.add('active');
+            event.target.classList.add('active');
+            
+            // Cargar datos específicos de la pestaña
+            if (tabName === 'dashboard') {
+                loadDashboard();
+            } else if (tabName === 'transactions') {
+                loadTransactions();
+            }
+        }
+        
+        // Funciones de Google Sheets (simuladas para demo)
+        async function authenticate() {
+            // Simulación de autenticación
+            showStatus('auth-status', 'Conectando...', 'info');
+            
+            setTimeout(() => {
+                isGoogleSheetsConnected = true;
+                showStatus('auth-status', 'Conectado exitosamente a Google Sheets', 'success');
+                document.getElementById('auth-btn').style.display = 'none';
+                document.getElementById('signout-btn').style.display = 'inline-block';
+            }, 2000);
+        }
+        
+        function signOut() {
+            isGoogleSheetsConnected = false;
+            showStatus('auth-status', 'Desconectado de Google Sheets', 'info');
+            document.getElementById('auth-btn').style.display = 'inline-block';
+            document.getElementById('signout-btn').style.display = 'none';
+        }
+        
+        function testConnection() {
+            const spreadsheetId = document.getElementById('spreadsheet-id').value;
+            
+            if (!spreadsheetId) {
+                showStatus('connection-status', 'Por favor, introduce el ID de Google Sheets', 'error');
+                return;
+            }
+            
+            if (!isGoogleSheetsConnected) {
+                showStatus('connection-status', 'Primero debes conectarte a Google Sheets', 'error');
+                return;
+            }
+            
+            currentSpreadsheetId = spreadsheetId;
+            showStatus('connection-status', 'Conexión exitosa. ¡Ya puedes usar la aplicación!', 'success');
+        }
+        
+        // Función para mostrar estados
+        function showStatus(elementId, message, type) {
+            const element = document.getElementById(elementId);
+            element.textContent = message;
+            element.className = `status ${type}`;
+        }
+        
+        // Manejar formulario de transacciones
+        document.getElementById('transaction-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            if (!isGoogleSheetsConnected || !currentSpreadsheetId) {
+                alert('Primero debes configurar la conexión con Google Sheets');
+                return;
+            }
+            
+            const transaction = {
+                date: document.getElementById('date').value,
+                concept: document.getElementById('concept').value,
+                category: document.getElementById('category').value,
+                amount: parseFloat(document.getElementById('amount').value),
+                type: document.getElementById('type').value
+            };
+            
+            // Ajustar el importe según el tipo
+            if (transaction.type === 'Gasto' && transaction.amount > 0) {
+                transaction.amount = -transaction.amount;
+            }
+            
+            // Añadir a la lista local (simulación)
+            transactions.push(transaction);
+            
+            alert('Transacción añadida exitosamente');
+            
+            // Limpiar formulario
+            this.reset();
+            document.getElementById('date').valueAsDate = new Date();
+        });
+        
+        // Manejo de archivos Excel
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (file) {
+                document.getElementById('file-display').textContent = `📁 ${file.name}`;
+                document.getElementById('import-btn').disabled = false;
+            }
+        }
+        
+        function importExcel() {
+            const fileInput = document.getElementById('excel-file');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                alert('Por favor, selecciona un archivo Excel');
+                return;
+            }
+            
+            if (!isGoogleSheetsConnected || !currentSpreadsheetId) {
+                alert('Primero debes configurar la conexión con Google Sheets');
+                return;
+            }
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, {type: 'array'});
+                const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                const jsonData = XLSX.utils.sheet_to_json(firstSheet);
+                
+                processExcelData(jsonData);
+            };
+            reader.readAsArrayBuffer(file);
+        }
+        
+        function processExcelData(data) {
+            const defaultCategory = document.getElementById('default-category').value;
+            const processedTransactions = [];
+            
+            data.forEach(row => {
+                // Buscar las columnas necesarias (flexible con nombres)
+                const keys = Object.keys(row);
+                const dateKey = keys.find(key => key.toLowerCase().includes('fecha') && key.toLowerCase().includes('operacion'));
+                const conceptKey = keys.find(key => key.toLowerCase().includes('concepto'));
+                const amountKey = keys.find(key => key.toLowerCase().includes('importe'));
+                
+                if (dateKey && conceptKey && amountKey) {
+                    const amount = parseFloat(row[amountKey]) || 0;
+                    const transaction = {
+                        date: formatDate(row[dateKey]),
+                        concept: row[conceptKey] || 'Sin concepto',
+                        category: defaultCategory,
+                        amount: amount,
+                        type: amount >= 0 ? 'Ingreso' : 'Gasto'
+                    };
+                    
+                    processedTransactions.push(transaction);
+                }
+            });
+            
+            // Añadir a la lista de transacciones
+            transactions.push(...processedTransactions);
+            
+            // Mostrar preview
+            showImportPreview(processedTransactions);
+            
+            alert(`Se importaron ${processedTransactions.length} transacciones exitosamente`);
+        }
+        
+        function formatDate(dateValue) {
+            if (typeof dateValue === 'number') {
+                // Excel serial date
+                const date = new Date((dateValue - 25569) * 86400 * 1000);
+                return date.toISOString().split('T')[0];
+            } else if (typeof dateValue === 'string') {
+                // Intentar parsear string de fecha
+                const date = new Date(dateValue);
+                return date.toISOString().split('T')[0];
+            }
+            return new Date().toISOString().split('T')[0];
+        }
+        
+        function showImportPreview(data) {
+            const container = document.getElementById('import-preview');
+            if (data.length === 0) {
+                container.innerHTML = '<p>No se encontraron datos para importar.</p>';
+                return;
+            }
+            
+            let html = `
+                <h3>Vista previa de importación (${data.length} transacciones)</h3>
+                <table class="transactions-table">
+                    <thead>
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Concepto</th>
+                            <th>Categoría</th>
+                            <th>Importe</th>
+                            <th>Tipo</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+            
+            data.slice(0, 10).forEach(transaction => {
+                html += `
+                    <tr>
+                        <td>${transaction.date}</td>
+                        <td>${transaction.concept}</td>
+                        <td>${transaction.category}</td>
+                        <td class="${transaction.amount >= 0 ? 'income' : 'expense'}">
+                            €${transaction.amount.toFixed(2)}
+                        </td>
+                        <td>${transaction.type}</td>
+                    </tr>
+                `;
+            });
+            
+            html += '</tbody></table>';
+            
+            if (data.length > 10) {
+                html += `<p><em>Mostrando las primeras 10 transacciones de ${data.length} total.</em></p>`;
+            }
+            
+            container.innerHTML = html;
+        }
+        
+        // Funciones del Dashboard
+        function loadDashboard() {
+            if (transactions.length === 0) {
+                // Datos de ejemplo para demostración
+                transactions = [
+                    {date: '2024-01-15', concept: 'Salario', category: 'Salario', amount: 2500, type: 'Ingreso'},
+                    {date: '2024-01-16', concept: 'Supermercado', category: 'Alimentación', amount: -85.50, type: 'Gasto'},
+                    {date: '2024-01-17', concept: 'Gasolina', category: 'Transporte', amount: -45.20, type: 'Gasto'},
+                    {date: '2024-01-18', concept: 'Freelance', category: 'Freelance', amount: 300, type: 'Ingreso'},
+                    {date: '2024-01-19', concept: 'Restaurante', category: 'Entretenimiento', amount: -35.80, type: 'Gasto'},
+                    {date: '2024-01-20', concept: 'Alquiler', category: 'Vivienda', amount: -800, type: 'Gasto'}
+                ];
+            }
+            
+            calculateSummary();
+            createCharts();
+        }
+        
+        function calculateSummary() {
+            const totalIncome = transactions.filter(t => t.amount > 0).reduce((sum, t) => sum + t.amount, 0);
+            const totalExpenses = Math.abs(transactions.filter(t => t.amount < 0).reduce((sum, t) => sum + t.amount, 0));
+            const balance = totalIncome - totalExpenses;
+            
+            document.getElementById('total-income').textContent = `€${totalIncome.toFixed(2)}`;
+            document.getElementById('total-expenses').textContent = `€${totalExpenses.toFixed(2)}`;
+            document.getElementById('balance').textContent = `€${balance.toFixed(2)}`;
+            
+            // Cambiar color del balance
+            const balanceElement = document.getElementById('balance');
+            if (balance >= 0) {
+                balanceElement.style.color = '#28a745';
+            } else {
+                balanceElement.style.color = '#dc3545';
+            }
+        }
+        
+        function createCharts() {
+            createCategoryChart();
+            createMonthlyChart();
+        }
+        
+        function createCategoryChart() {
+            const ctx = document.getElementById('categoryChart').getContext('2d');
+            
+            // Agru
